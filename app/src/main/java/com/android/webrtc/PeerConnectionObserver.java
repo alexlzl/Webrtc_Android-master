@@ -8,12 +8,7 @@ import org.webrtc.MediaStream;
 import org.webrtc.PeerConnection;
 import org.webrtc.RtpReceiver;
 
-/**
- * Created by taxiao on 2019/8/17
- * CSDN:http://blog.csdn.net/yin13753884368/article
- * Github:https://github.com/taxiao213
- * 微信公众号:他晓
- */
+
 public class PeerConnectionObserver implements PeerConnection.Observer {
 
     private String TAG = "PeerConnectionObserver";

@@ -3,12 +3,7 @@ package com.android.webrtc;
 import android.content.Context;
 import android.content.SharedPreferences;
 
-/**
- * Created by taxiao on 2021/5/16
- * CSDN:http://blog.csdn.net/yin13753884368/article
- * Github:https://github.com/taxiao213
- * 微信公众号:他晓
- */
+
 class SharePreferences {
     private static volatile SharePreferences sharePreferences;
     public SharedPreferences prefs;

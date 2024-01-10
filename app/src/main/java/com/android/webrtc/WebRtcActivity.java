@@ -1,6 +1,5 @@
 package com.android.webrtc;
 
-import android.annotation.SuppressLint;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Message;
@@ -47,18 +46,14 @@ import java.util.ArrayList;
 import java.util.List;
 
 
-/**
- * 界面展示
- * Created by taxiao on 2019/8/17
- * CSDN:http://blog.csdn.net/yin13753884368/article
- * Github:https://github.com/taxiao213
- * 微信公众号:他晓
- */
 public class WebRtcActivity extends AppCompatActivity implements View.OnClickListener {
     private static final String TAG = "WebRtcActivity";
 
     private SurfaceViewRenderer localSurfaceView;
     private SurfaceViewRenderer remoteSurfaceView;
+    /**
+     * 在渲染视频时，可能需要使用 EglBase 类。EglBase 提供了 OpenGL ES 上下文，用于渲染视频到 Android 视图（如 SurfaceViewRenderer 或 TextureViewRenderer）中
+     */
     private EglBase eglBase;
     private PeerConnectionFactory peerConnectionFactory;
 
@@ -67,8 +62,21 @@ public class WebRtcActivity extends AppCompatActivity implements View.OnClickLis
     private PeerConnection peerConnection;
     private List<String> streamList;
     private WebSocketClient webSocketClient;
-
-    @SuppressLint("HandlerLeak")
+    /**
+     * 配置STUN穿透服务器  转发服务器
+     */
+    private List<PeerConnection.IceServer> iceServers;
+    private EditText tvFromName;
+    private EditText tvFrom;
+    private EditText tvToName;
+    private EditText tvTo;
+    private Button btConnect;
+    private Button btCall;
+    private TextView tvIsCall;
+    private Button btReCall;
+    private Button btReFuse;
+    private DataChannel channel;
+    private MySdpObserver observer;
     private Handler handler = new Handler() {
         @Override
         public void handleMessage(Message msg) {
@@ -85,19 +93,6 @@ public class WebRtcActivity extends AppCompatActivity implements View.OnClickLis
             }
         }
     };
-    private List<PeerConnection.IceServer> iceServers;
-    private EditText tvFromName;
-    private EditText tvFrom;
-    private EditText tvToNname;
-    private EditText tvTo;
-    private Button btConnect;
-    private Button btCall;
-    private TextView tvIsCall;
-    private Button btReCall;
-    private Button btReFuse;
-    private DataChannel channel;
-    private MySdpObserver observer;
-
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -107,7 +102,7 @@ public class WebRtcActivity extends AppCompatActivity implements View.OnClickLis
         remoteSurfaceView = findViewById(R.id.RemoteSurfaceView);
         tvFromName = findViewById(R.id.tv_from_name);
         tvFrom = findViewById(R.id.tv_from);
-        tvToNname = findViewById(R.id.tv_to_name);
+        tvToName = findViewById(R.id.tv_to_name);
         tvTo = findViewById(R.id.tv_to);
         btConnect = findViewById(R.id.bt_connect);
         btCall = findViewById(R.id.bt_call);
@@ -121,27 +116,6 @@ public class WebRtcActivity extends AppCompatActivity implements View.OnClickLis
     }
 
 
-    @Override
-    public void onClick(View v) {
-        if (v != null) {
-            switch (v.getId()) {
-                case R.id.bt_connect:
-                    connectionWebsocket();
-                    break;
-                case R.id.bt_call:
-                    call();
-                    break;
-                case R.id.bt_refuse:
-                    reFuse();
-                    break;
-                case R.id.bt_recall:
-                    reCall();
-                    break;
-            }
-        }
-    }
-
-
     /**
      * 连接Websocket
      */
@@ -149,9 +123,9 @@ public class WebRtcActivity extends AppCompatActivity implements View.OnClickLis
         try {
             webSocketClient = new WebSocketClient(URI.create(SharePreferences.getInstance(WebRtcActivity.this).getServerUrl())) {
                 @Override
-                public void onOpen(ServerHandshake handshakedata) {
+                public void onOpen(ServerHandshake handShakeData) {
                     setText("已连接");
-                    Log.e(TAG, "onOpen == Status == " + handshakedata.getHttpStatus() + " StatusMessage == " + handshakedata.getHttpStatusMessage());
+                    Log.e(TAG, "onOpen == getHttpStatus == " + handShakeData.getHttpStatus() + " getHttpStatusMessage == " + handShakeData.getHttpStatusMessage());
                     Model model = new Model(Constant.REGISTER, getFromName(), getFrom(), getToName(), getTo());
                     webSocketClient.send(new Gson().toJson(model));
                 }
@@ -185,7 +159,7 @@ public class WebRtcActivity extends AppCompatActivity implements View.OnClickLis
                                         }
                                         break;
                                     case Constant.INCALL:
-                                        isIncall();
+                                        isInCall();
                                         break;
                                     case Constant.INCALL_RESPONSE:
                                         if (isSucceed == Constant.RESPONSE_SUCCEED) {
@@ -196,13 +170,17 @@ public class WebRtcActivity extends AppCompatActivity implements View.OnClickLis
                                         }
                                         break;
                                     case Constant.OFFER:
-                                        //收到对方offer sdp
+                                        /**
+                                         * 收到对方offer sdp
+                                         */
                                         SessionDescription sessionDescription1 = model.getSessionDescription();
                                         peerConnection.setRemoteDescription(observer, sessionDescription1);
                                         createAnswer();
                                         break;
                                     case Constant.CANDIDATE:
-                                        //服务端 发送 接收方sdpAnswer
+                                        /**
+                                         * 服务端 发送 接收方sdpAnswer
+                                         */
                                         IceCandidate iceCandidate = model.getIceCandidate();
                                         if (iceCandidate != null) {
                                             peerConnection.addIceCandidate(iceCandidate);
@@ -238,23 +216,22 @@ public class WebRtcActivity extends AppCompatActivity implements View.OnClickLis
      * 连接webrtc
      */
     private void createPeerConnection() {
-        //Initialising PeerConnectionFactory
-        InitializationOptions initializationOptions = InitializationOptions.builder(this)
-                .setEnableInternalTracer(true)
-                .setFieldTrials("WebRTC-H264HighProfile/Enabled/")
-                .createInitializationOptions();
+        /**
+         * Initialising PeerConnectionFactory
+         */
+        InitializationOptions initializationOptions = InitializationOptions.builder(this).setEnableInternalTracer(true).setFieldTrials("WebRTC-H264HighProfile/Enabled/").createInitializationOptions();
         PeerConnectionFactory.initialize(initializationOptions);
-        //创建EglBase对象
+        /**
+         * 创建EglBase对象
+         */
         eglBase = EglBase.create();
         PeerConnectionFactory.Options options = new PeerConnectionFactory.Options();
         options.disableEncryption = true;
         options.disableNetworkMonitor = true;
-        peerConnectionFactory = PeerConnectionFactory.builder()
-                .setVideoDecoderFactory(new DefaultVideoDecoderFactory(eglBase.getEglBaseContext()))
-                .setVideoEncoderFactory(new DefaultVideoEncoderFactory(eglBase.getEglBaseContext(), true, true))
-                .setOptions(options)
-                .createPeerConnectionFactory();
-        // 配置STUN穿透服务器  转发服务器
+        peerConnectionFactory = PeerConnectionFactory.builder().setVideoDecoderFactory(new DefaultVideoDecoderFactory(eglBase.getEglBaseContext())).setVideoEncoderFactory(new DefaultVideoEncoderFactory(eglBase.getEglBaseContext(), true, true)).setOptions(options).createPeerConnectionFactory();
+        /**
+         * 配置STUN穿透服务器  转发服务器
+         */
         iceServers = new ArrayList<>();
         PeerConnection.IceServer iceServer = PeerConnection.IceServer.builder(Constant.STUN).createIceServer();
         iceServers.add(iceServer);
@@ -266,13 +243,12 @@ public class WebRtcActivity extends AppCompatActivity implements View.OnClickLis
         PeerConnectionObserver connectionObserver = getObserver();
         peerConnection = peerConnectionFactory.createPeerConnection(configuration, connectionObserver);
 
-
-        /*
-        DataChannel.Init 可配参数说明：
-        ordered：是否保证顺序传输；
-        maxRetransmitTimeMs：重传允许的最长时间；
-        maxRetransmits：重传允许的最大次数；
-        */
+        /**
+         *  DataChannel.Init 可配参数说明：
+         *  ordered：是否保证顺序传输；
+         *  maxRetransmitTimeMs：重传允许的最长时间；
+         *  maxRetransmits：重传允许的最大次数；
+         */
         DataChannel.Init init = new DataChannel.Init();
         if (peerConnection != null) {
             channel = peerConnection.createDataChannel(Constant.CHANNEL, init);
@@ -280,80 +256,34 @@ public class WebRtcActivity extends AppCompatActivity implements View.OnClickLis
         DateChannelObserver channelObserver = new DateChannelObserver();
         connectionObserver.setObserver(channelObserver);
         initView();
-        initObserver();
+        initSdpObserver();
     }
 
-    private void initObserver() {
-        observer = new MySdpObserver() {
-            @Override
-            public void onCreateSuccess(SessionDescription sessionDescription) {
-                //将会话描述设置在本地
-                peerConnection.setLocalDescription(this, sessionDescription);
-                SessionDescription localDescription = peerConnection.getLocalDescription();
-                SessionDescription.Type type = localDescription.type;
-                Log.e(TAG, "onCreateSuccess == " + " type == " + type);
-                //接下来使用之前的WebSocket实例将offer发送给服务器
-                if (type == SessionDescription.Type.OFFER) {
-                    //呼叫
-                    offer(sessionDescription);
-                } else if (type == SessionDescription.Type.ANSWER) {
-                    //应答
-                    answer(sessionDescription);
-                } else if (type == SessionDescription.Type.PRANSWER) {
-                    //再次应答
-
-                }
-            }
-        };
-
-    }
-
-    @NonNull
-    private PeerConnectionObserver getObserver() {
-        return new PeerConnectionObserver() {
-            @Override
-            public void onIceCandidate(IceCandidate iceCandidate) {
-                super.onIceCandidate(iceCandidate);
-                setIceCandidate(iceCandidate);
-            }
-
-            @Override
-            public void onAddStream(MediaStream mediaStream) {
-                super.onAddStream(mediaStream);
-                Log.d(TAG, "onAddStream : " + mediaStream.toString());
-                List<VideoTrack> videoTracks = mediaStream.videoTracks;
-                if (videoTracks != null && videoTracks.size() > 0) {
-                    VideoTrack videoTrack = videoTracks.get(0);
-                    if (videoTrack != null) {
-                        videoTrack.addSink(remoteSurfaceView);
-                    }
-                }
-                List<AudioTrack> audioTracks = mediaStream.audioTracks;
-                if (audioTracks != null && audioTracks.size() > 0) {
-                    AudioTrack audioTrack = audioTracks.get(0);
-                    if (audioTrack != null) {
-                        audioTrack.setVolume(Constant.VOLUME);
-                    }
-                }
-            }
-        };
-    }
-
-    private void sendMessage(String message) {
-        byte[] msg = message.getBytes();
-        DataChannel.Buffer buffer = new DataChannel.Buffer(ByteBuffer.wrap(msg), false);
-        channel.send(buffer);
-    }
 
     /**
      * 初始化view
      */
     private void initView() {
-        initSurfaceview(localSurfaceView);
-        initSurfaceview(remoteSurfaceView);
+        initSurfaceView(localSurfaceView);
+        initSurfaceView(remoteSurfaceView);
         startLocalVideoCapture(localSurfaceView);
         startLocalAudioCapture();
     }
+
+    /**
+     * 初始化iew
+     *
+     * @param surfaceViewRenderer
+     */
+    private void initSurfaceView(SurfaceViewRenderer surfaceViewRenderer) {
+        surfaceViewRenderer.init(eglBase.getEglBaseContext(), null);
+        surfaceViewRenderer.setMirror(true);
+        surfaceViewRenderer.setScalingType(RendererCommon.ScalingType.SCALE_ASPECT_FILL);
+        surfaceViewRenderer.setKeepScreenOn(true);
+        surfaceViewRenderer.setZOrderMediaOverlay(true);
+        surfaceViewRenderer.setEnableHardwareScaler(false);
+    }
+
 
     /**
      * 创建本地视频
@@ -398,19 +328,85 @@ public class WebRtcActivity extends AppCompatActivity implements View.OnClickLis
     }
 
     /**
-     * 初始化iew
+     * 准备摄像头
      *
-     * @param localSurfaceView
+     * @return
      */
-    private void initSurfaceview(SurfaceViewRenderer localSurfaceView) {
-        localSurfaceView.init(eglBase.getEglBaseContext(), null);
-        localSurfaceView.setMirror(true);
-        localSurfaceView.setScalingType(RendererCommon.ScalingType.SCALE_ASPECT_FILL);
-        localSurfaceView.setKeepScreenOn(true);
-        localSurfaceView.setZOrderMediaOverlay(true);
-        localSurfaceView.setEnableHardwareScaler(false);
+    private VideoCapturer createVideoCapturer() {
+        if (Camera2Enumerator.isSupported(this)) {
+            return createCameraCapture(new Camera2Enumerator(this));
+        } else {
+            return createCameraCapture(new Camera1Enumerator(true));
+        }
     }
 
+    private VideoCapturer createCameraCapture(CameraEnumerator enumerator) {
+        final String[] deviceNames = enumerator.getDeviceNames();
+
+        /**
+         * First, try to find front facing camera
+         */
+        Log.d(TAG, "Looking for front facing cameras.");
+        for (String deviceName : deviceNames) {
+            if (enumerator.isFrontFacing(deviceName)) {
+                Logging.d(TAG, "Creating front facing camera capturer.");
+                VideoCapturer videoCapturer = enumerator.createCapturer(deviceName, null);
+                if (videoCapturer != null) {
+                    return videoCapturer;
+                }
+            }
+        }
+
+        /**
+         *  Front facing camera not found, try something else
+         */
+        Log.d(TAG, "Looking for other cameras.");
+        for (String deviceName : deviceNames) {
+            if (!enumerator.isFrontFacing(deviceName)) {
+                Logging.d(TAG, "Creating other camera capturer.");
+                VideoCapturer videoCapturer = enumerator.createCapturer(deviceName, null);
+                if (videoCapturer != null) {
+                    return videoCapturer;
+                }
+            }
+        }
+        return null;
+    }
+
+    private void initSdpObserver() {
+        observer = new MySdpObserver() {
+            @Override
+            public void onCreateSuccess(SessionDescription sessionDescription) {
+                /**
+                 * 将会话描述设置在本地
+                 */
+                peerConnection.setLocalDescription(this, sessionDescription);
+                SessionDescription localDescription = peerConnection.getLocalDescription();
+                SessionDescription.Type type = localDescription.type;
+                Log.e(TAG, "onCreateSuccess == " + " type == " + type);
+                /**
+                 * 接下来使用之前的WebSocket实例将offer发送给服务器
+                 */
+                if (type == SessionDescription.Type.OFFER) {
+                    /**
+                     * 呼叫
+                     */
+                    offer(sessionDescription);
+                } else if (type == SessionDescription.Type.ANSWER) {
+                    /**
+                     * 应答
+                     */
+                    answer(sessionDescription);
+                } else if (type == SessionDescription.Type.PRANSWER) {
+                    /**
+                     * 再次应答
+                     */
+
+                }
+            }
+        };
+
+    }
 
     /**
      * 拨打电话
@@ -427,32 +423,35 @@ public class WebRtcActivity extends AppCompatActivity implements View.OnClickLis
         peerConnection.createAnswer(observer, mediaConstraints);
     }
 
-    /**
-     * 应答
-     *
-     * @param sdpDescription
-     */
-    private void answer(SessionDescription sdpDescription) {
-        Model model = new Model(getFromName(), getFrom(), getToName(), getTo());
-        model.setId(Constant.OFFER);
-        model.setSessionDescription(sdpDescription);
-        String text = new Gson().toJson(model);
-        Log.e(TAG, " answer " + text);
-        webSocketClient.send(text);
-    }
+    @NonNull
+    private PeerConnectionObserver getObserver() {
+        return new PeerConnectionObserver() {
+            @Override
+            public void onIceCandidate(IceCandidate iceCandidate) {
+                super.onIceCandidate(iceCandidate);
+                setIceCandidate(iceCandidate);
+            }
 
-    /**
-     * 呼叫
-     *
-     * @param sdpDescription
-     */
-    private void offer(SessionDescription sdpDescription) {
-        Model model = new Model(getFromName(), getFrom(), getToName(), getTo());
-        model.setId(Constant.OFFER);
-        model.setSessionDescription(sdpDescription);
-        String text = new Gson().toJson(model);
-        Log.e(TAG, " offer " + text);
-        webSocketClient.send(text);
+            @Override
+            public void onAddStream(MediaStream mediaStream) {
+                super.onAddStream(mediaStream);
+                Log.d(TAG, "onAddStream : " + mediaStream.toString());
+                List<VideoTrack> videoTracks = mediaStream.videoTracks;
+                if (videoTracks != null && videoTracks.size() > 0) {
+                    VideoTrack videoTrack = videoTracks.get(0);
+                    if (videoTrack != null) {
+                        videoTrack.addSink(remoteSurfaceView);
+                    }
+                }
+                List<AudioTrack> audioTracks = mediaStream.audioTracks;
+                if (audioTracks != null && audioTracks.size() > 0) {
+                    AudioTrack audioTrack = audioTracks.get(0);
+                    if (audioTrack != null) {
+                        audioTrack.setVolume(Constant.VOLUME);
+                    }
+                }
+            }
+        };
     }
 
     /**
@@ -471,6 +470,36 @@ public class WebRtcActivity extends AppCompatActivity implements View.OnClickLis
         webSocketClient.send(text);
     }
 
+
+    /**
+     * 应答
+     *
+     * @param sdpDescription
+     */
+    private void answer(SessionDescription sdpDescription) {
+        Model model = new Model(getFromName(), getFrom(), getToName(), getTo());
+        model.setId(Constant.OFFER);
+        model.setSessionDescription(sdpDescription);
+        String text = new Gson().toJson(model);
+        Log.e(TAG, " answer " + text);
+        webSocketClient.send(text);
+    }
+
+    /**
+     * 发送SDP到对端
+     *
+     * @param sdpDescription
+     */
+    private void offer(SessionDescription sdpDescription) {
+        Model model = new Model(getFromName(), getFrom(), getToName(), getTo());
+        model.setId(Constant.OFFER);
+        model.setSessionDescription(sdpDescription);
+        String text = new Gson().toJson(model);
+        Log.e(TAG, " offer " + text);
+        webSocketClient.send(text);
+    }
+
+
     /**
      * 呼叫
      */
@@ -485,12 +514,12 @@ public class WebRtcActivity extends AppCompatActivity implements View.OnClickLis
     /**
      * 是否接听
      */
-    private void isIncall() {
+    private void isInCall() {
         tvIsCall.setText("收到来电，是否接听");
     }
 
     /**
-     * 接听
+     * 接听通讯
      */
     private void reCall() {
         Model model = new Model(getFromName(), getFrom(), getToName(), getTo());
@@ -502,7 +531,7 @@ public class WebRtcActivity extends AppCompatActivity implements View.OnClickLis
     }
 
     /**
-     * 拒绝
+     * 拒绝通讯
      */
     private void reFuse() {
         Model model = new Model(getFromName(), getFrom(), getToName(), getTo());
@@ -521,7 +550,7 @@ public class WebRtcActivity extends AppCompatActivity implements View.OnClickLis
 
     @NonNull
     private String getToName() {
-        return tvToNname.getText().toString();
+        return tvToName.getText().toString();
     }
 
     private String getTo() {
@@ -536,47 +565,19 @@ public class WebRtcActivity extends AppCompatActivity implements View.OnClickLis
         runOnUiThread(() -> btConnect.setText(st));
     }
 
-    /**
-     * 准备摄像头
-     *
-     * @return
-     */
-    private VideoCapturer createVideoCapturer() {
-        if (Camera2Enumerator.isSupported(this)) {
-            return createCameraCapturer(new Camera2Enumerator(this));
-        } else {
-            return createCameraCapturer(new Camera1Enumerator(true));
-        }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+        close();
     }
 
-    private VideoCapturer createCameraCapturer(CameraEnumerator enumerator) {
-        final String[] deviceNames = enumerator.getDeviceNames();
-
-        // First, try to find front facing camera
-        Log.d(TAG, "Looking for front facing cameras.");
-        for (String deviceName : deviceNames) {
-            if (enumerator.isFrontFacing(deviceName)) {
-                Logging.d(TAG, "Creating front facing camera capturer.");
-                VideoCapturer videoCapturer = enumerator.createCapturer(deviceName, null);
-                if (videoCapturer != null) {
-                    return videoCapturer;
-                }
-            }
-        }
-
-        // Front facing camera not found, try something else
-        Log.d(TAG, "Looking for other cameras.");
-        for (String deviceName : deviceNames) {
-            if (!enumerator.isFrontFacing(deviceName)) {
-                Logging.d(TAG, "Creating other camera capturer.");
-                VideoCapturer videoCapturer = enumerator.createCapturer(deviceName, null);
-                if (videoCapturer != null) {
-                    return videoCapturer;
-                }
-            }
-        }
-        return null;
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        close();
     }
+
 
     private void close() {
         if (peerConnection != null) {
@@ -594,14 +595,28 @@ public class WebRtcActivity extends AppCompatActivity implements View.OnClickLis
     }
 
     @Override
-    protected void onDestroy() {
-        super.onDestroy();
-        close();
+    public void onClick(View v) {
+        if (v != null) {
+            switch (v.getId()) {
+                case R.id.bt_connect:
+                    connectionWebsocket();
+                    break;
+                case R.id.bt_call:
+                    call();
+                    break;
+                case R.id.bt_refuse:
+                    reFuse();
+                    break;
+                case R.id.bt_recall:
+                    reCall();
+                    break;
+            }
+        }
     }
 
-    @Override
-    protected void onPause() {
-        super.onPause();
-        close();
+    private void sendMessage(String message) {
+        byte[] msg = message.getBytes();
+        DataChannel.Buffer buffer = new DataChannel.Buffer(ByteBuffer.wrap(msg), false);
+        channel.send(buffer);
     }
 }

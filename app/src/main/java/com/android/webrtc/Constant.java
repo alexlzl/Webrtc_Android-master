@@ -1,12 +1,6 @@
 package com.android.webrtc;
 
-/**
- * 地址配置 信令
- * Created by taxiao on 2019/8/14
- * CSDN:http://blog.csdn.net/yin13753884368/article
- * Github:https://github.com/taxiao213
- * 微信公众号:他晓
- */
+
 public class Constant {
     public static final String URL = "ws://192.168.31.106:8080/webrtc/websocket";//server服务器地址
     public static final String STUN = "stun:stun.l.google.com:19302";//穿透服务器

@@ -4,12 +4,7 @@ import android.util.Log;
 
 import org.webrtc.DataChannel;
 
-/**
- * Created by taxiao on 2019/8/17
- * CSDN:http://blog.csdn.net/yin13753884368/article
- * Github:https://github.com/taxiao213
- * 微信公众号:他晓
- */
+
 public class DateChannelObserver implements DataChannel.Observer {
 
     private String TAG = "DateChannelObserver";
