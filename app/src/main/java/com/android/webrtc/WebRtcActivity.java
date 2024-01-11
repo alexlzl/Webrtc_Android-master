@@ -1,5 +1,6 @@
 package com.android.webrtc;
 
+import android.Manifest;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Message;
@@ -113,8 +114,29 @@ public class WebRtcActivity extends AppCompatActivity implements View.OnClickLis
         btCall.setOnClickListener(this);
         btReCall.setOnClickListener(this);
         btReFuse.setOnClickListener(this);
+        initPermission();
     }
+    private String[] permission=new String[]{Manifest.permission.CAMERA};
+    private void initPermission() {
 
+        //Android 6.0以上动态申请权限
+        PermissionRequest permissionRequest = new PermissionRequest();
+        permissionRequest.requestRuntimePermission(
+                this,
+                permission,
+                new  PermissionListener() {
+
+                    @Override
+                    public void onGranted() {
+
+                    }
+
+                    @Override
+                    public void onDenied(List<String> deniedPermissions) {
+
+                    }
+                });
+    }
 
     /**
      * 连接Websocket

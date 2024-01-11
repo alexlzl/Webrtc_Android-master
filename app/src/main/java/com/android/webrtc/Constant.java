@@ -2,7 +2,7 @@ package com.android.webrtc;
 
 
 public class Constant {
-    public static final String URL = "ws://192.168.31.106:8080/webrtc/websocket";//server服务器地址
+    public static final String URL = "ws://10.1.59.115:8080/webrtc/websocket";//server服务器地址
     public static final String STUN = "stun:stun.l.google.com:19302";//穿透服务器
     public static final String CHANNEL = "channel";
 
