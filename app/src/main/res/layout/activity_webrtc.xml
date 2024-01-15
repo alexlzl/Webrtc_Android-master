@@ -11,43 +11,54 @@
         android:layout_width="match_parent"
         android:layout_height="50dp"
         android:hint="from姓名"
-        android:text="王安" />
+        android:text="Alice" />
 
     <EditText
         android:id="@+id/tv_from"
         android:layout_width="match_parent"
         android:layout_height="50dp"
         android:hint="from账号"
-        android:text="11" />
+        android:text="11(发起端ID)" />
 
     <EditText
         android:id="@+id/tv_to_name"
         android:layout_width="match_parent"
         android:layout_height="50dp"
         android:hint="to姓名"
-        android:text="往事" />
+        android:text="Bob" />
 
     <EditText
         android:id="@+id/tv_to"
         android:layout_width="match_parent"
         android:layout_height="50dp"
         android:hint="to账号"
-        android:text="12" />
+        android:text="12(接收端ID)" />
 
     <Button
         android:id="@+id/bt_connect"
         android:layout_width="match_parent"
         android:layout_height="50dp"
         android:gravity="center"
-        android:text="连接" />
+        android:text="连接websocket" />
 
     <Button
         android:id="@+id/bt_call"
         android:layout_width="match_parent"
         android:layout_height="50dp"
         android:gravity="center"
-        android:text="拨打" />
-
+        android:text="视频+语音通话" />
+    <Button
+        android:id="@+id/bt_call_video"
+        android:layout_width="match_parent"
+        android:layout_height="50dp"
+        android:gravity="center"
+        android:text="视频通话" />
+    <Button
+        android:id="@+id/bt_call_audio"
+        android:layout_width="match_parent"
+        android:layout_height="50dp"
+        android:gravity="center"
+        android:text="音频通话" />
     <TextView
         android:id="@+id/tv_iscall"
         android:layout_width="match_parent"
@@ -82,19 +93,48 @@
         android:layout_width="match_parent"
         android:layout_height="200dp"
         android:orientation="horizontal">
+       <LinearLayout
+           android:layout_weight="1"
+           android:orientation="vertical"
+           android:layout_width="0dp"
+           android:layout_height="200dp">
+           <TextView
+               android:layout_gravity="center_horizontal"
+               android:textColor="@android:color/holo_red_dark"
+               android:id="@+id/me"
+               android:layout_width="wrap_content"
+               android:layout_height="wrap_content"
+               android:gravity="center"
+               android:text="本地视频" />
+           <org.webrtc.SurfaceViewRenderer
+               android:layout_margin="16dp"
+               android:id="@+id/LocalSurfaceView"
+               android:layout_width="match_parent"
+               android:layout_height="200dp"
+               android:layout_weight="1" />
+       </LinearLayout>
 
-        <org.webrtc.SurfaceViewRenderer
-            android:id="@+id/LocalSurfaceView"
+        <LinearLayout
+            android:layout_weight="1"
+            android:orientation="vertical"
             android:layout_width="0dp"
-            android:layout_height="200dp"
-            android:layout_weight="1" />
+            android:layout_height="200dp">
+            <TextView
+                android:layout_gravity="center_horizontal"
+                android:textColor="@android:color/holo_red_dark"
+                android:id="@+id/remote"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:gravity="center"
+                android:text="远端视频" />
+            <org.webrtc.SurfaceViewRenderer
+                android:id="@+id/RemoteSurfaceView"
+                android:layout_width="match_parent"
+                android:layout_height="200dp"
+                android:layout_margin="16dp"
+                android:layout_weight="1" />
+        </LinearLayout>
 
-        <org.webrtc.SurfaceViewRenderer
-            android:id="@+id/RemoteSurfaceView"
-            android:layout_width="0dp"
-            android:layout_height="200dp"
-            android:layout_margin="16dp"
-            android:layout_weight="1" />
     </LinearLayout>
 
 </LinearLayout>

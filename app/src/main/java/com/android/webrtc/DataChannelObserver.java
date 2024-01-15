@@ -5,7 +5,7 @@ import android.util.Log;
 import org.webrtc.DataChannel;
 
 
-public class DateChannelObserver implements DataChannel.Observer {
+public class DataChannelObserver implements DataChannel.Observer {
 
     private String TAG = "DateChannelObserver";
 

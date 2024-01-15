@@ -12,6 +12,7 @@ import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import com.google.gson.Gson;
 
@@ -57,12 +58,13 @@ public class WebRtcActivity extends AppCompatActivity implements View.OnClickLis
      */
     private EglBase eglBase;
     private PeerConnectionFactory peerConnectionFactory;
-
     private VideoTrack videoTrack;
     private AudioTrack audioTrack;
     private PeerConnection peerConnection;
-    private List<String> streamList;
     private WebSocketClient webSocketClient;
+    private DataChannel channel;
+    private RtcSdpObserver observer;
+    private List<String> streamList;
     /**
      * 配置STUN穿透服务器  转发服务器
      */
@@ -73,11 +75,12 @@ public class WebRtcActivity extends AppCompatActivity implements View.OnClickLis
     private EditText tvTo;
     private Button btConnect;
     private Button btCall;
+    private Button btVideo;
+    private Button btAudio;
     private TextView tvIsCall;
     private Button btReCall;
     private Button btReFuse;
-    private DataChannel channel;
-    private MySdpObserver observer;
+    private String[] permission = new String[]{Manifest.permission.CAMERA};
     private Handler handler = new Handler() {
         @Override
         public void handleMessage(Message msg) {
@@ -107,24 +110,33 @@ public class WebRtcActivity extends AppCompatActivity implements View.OnClickLis
         tvTo = findViewById(R.id.tv_to);
         btConnect = findViewById(R.id.bt_connect);
         btCall = findViewById(R.id.bt_call);
+        btVideo = findViewById(R.id.bt_call_video);
+        btAudio = findViewById(R.id.bt_call_audio);
         tvIsCall = findViewById(R.id.tv_iscall);
         btReFuse = findViewById(R.id.bt_refuse);
         btReCall = findViewById(R.id.bt_recall);
         btConnect.setOnClickListener(this);
         btCall.setOnClickListener(this);
+        btVideo.setOnClickListener(this);
+        btAudio.setOnClickListener(this);
         btReCall.setOnClickListener(this);
         btReFuse.setOnClickListener(this);
         initPermission();
     }
-    private String[] permission=new String[]{Manifest.permission.CAMERA};
+
+    /**
+     * 初始化相机权限
+     */
     private void initPermission() {
 
-        //Android 6.0以上动态申请权限
+        /**
+         * Android 6.0以上动态申请权限
+         */
         PermissionRequest permissionRequest = new PermissionRequest();
         permissionRequest.requestRuntimePermission(
                 this,
                 permission,
-                new  PermissionListener() {
+                new PermissionListener() {
 
                     @Override
                     public void onGranted() {
@@ -146,45 +158,60 @@ public class WebRtcActivity extends AppCompatActivity implements View.OnClickLis
             webSocketClient = new WebSocketClient(URI.create(SharePreferences.getInstance(WebRtcActivity.this).getServerUrl())) {
                 @Override
                 public void onOpen(ServerHandshake handShakeData) {
-                    setText("已连接");
-                    Log.e(TAG, "onOpen == getHttpStatus == " + handShakeData.getHttpStatus() + " getHttpStatusMessage == " + handShakeData.getHttpStatusMessage());
+                    setText("webSocket已连接");
+                    Log.e(TAG, "onOpen == getHttpStatus ==" + handShakeData.getHttpStatus() + " getHttpStatusMessage == " + handShakeData.getHttpStatusMessage());
+                    /**
+                     * 注册当前账号信息
+                     */
                     Model model = new Model(Constant.REGISTER, getFromName(), getFrom(), getToName(), getTo());
                     webSocketClient.send(new Gson().toJson(model));
                 }
 
                 @Override
                 public void onMessage(String message) {
-                    Log.e(TAG, "onMessage == " + message);
+                    Log.e(TAG, "onMessage==" + message);
                     if (!TextUtils.isEmpty(message)) {
                         Model model = new Gson().fromJson(message, Model.class);
                         if (model != null) {
-                            String id = model.getId();
-                            if (!TextUtils.isEmpty(id)) {
+                            String messageType = model.getMessageType();
+                            if (!TextUtils.isEmpty(messageType)) {
                                 int isSucceed = model.getIsSucceed();
-                                switch (id) {
+                                switch (messageType) {
                                     case Constant.REGISTER_RESPONSE:
+                                        /**
+                                         * 注册用户信息返回
+                                         */
                                         if (isSucceed == Constant.RESPONSE_SUCCEED) {
                                             Message msg = new Message();
                                             msg.obj = Constant.OPEN;
                                             handler.sendMessage(msg);
-                                            Log.e(TAG, "连接成功");
+                                            Log.e(TAG, "用户信息注册成功");
                                         } else if (isSucceed == Constant.RESPONSE_FAILURE) {
-                                            Log.e(TAG, "注册失败，已经注册");
+                                            Log.e(TAG, "用户信息注册失败，已经注册");
                                         }
                                         break;
                                     case Constant.CALL_RESPONSE:
+                                        /**
+                                         * 发起音视频通讯请求返回
+                                         */
                                         if (isSucceed == Constant.RESPONSE_SUCCEED) {
-                                            Log.e(TAG, "对方在线，创建sdp offer");
+                                            Log.e(TAG, "对方在线，开始创建sdp offer");
                                             createOffer();
                                         } else if (isSucceed == Constant.RESPONSE_FAILURE) {
-                                            Log.e(TAG, "对方不在线，连接失败");
+                                            Log.e(TAG, "对方不在线，连接失败====无法音视频通讯");
                                         }
                                         break;
                                     case Constant.INCALL:
+                                        /**
+                                         * 有音视频通讯进入
+                                         */
                                         isInCall();
                                         break;
                                     case Constant.INCALL_RESPONSE:
                                         if (isSucceed == Constant.RESPONSE_SUCCEED) {
+                                            /**
+                                             * 接通音视频通讯
+                                             */
                                             createOffer();
                                             Log.e(TAG, "对方同意接听");
                                         } else if (isSucceed == Constant.RESPONSE_FAILURE) {
@@ -193,15 +220,15 @@ public class WebRtcActivity extends AppCompatActivity implements View.OnClickLis
                                         break;
                                     case Constant.OFFER:
                                         /**
-                                         * 收到对方offer sdp
+                                         * 收到对方offer sdp 远端设置 RemoteDescription 完毕后，就要创建 Answer
                                          */
-                                        SessionDescription sessionDescription1 = model.getSessionDescription();
-                                        peerConnection.setRemoteDescription(observer, sessionDescription1);
+                                        SessionDescription sessionDescriptionRemote = model.getSessionDescription();
+                                        peerConnection.setRemoteDescription(observer, sessionDescriptionRemote);
                                         createAnswer();
                                         break;
                                     case Constant.CANDIDATE:
                                         /**
-                                         * 服务端 发送 接收方sdpAnswer
+                                         * 收到服务端的Candidate
                                          */
                                         IceCandidate iceCandidate = model.getIceCandidate();
                                         if (iceCandidate != null) {
@@ -235,7 +262,7 @@ public class WebRtcActivity extends AppCompatActivity implements View.OnClickLis
 
 
     /**
-     * 连接webrtc
+     * 开始webrtc流程
      */
     private void createPeerConnection() {
         /**
@@ -259,11 +286,13 @@ public class WebRtcActivity extends AppCompatActivity implements View.OnClickLis
         iceServers.add(iceServer);
 
         streamList = new ArrayList<>();
-
+        /**
+         * 创建连接即为创建 PeerConnection，PeerConnection 是 WebRTC 非常重要的一个东西，是多人音视频通话连接的关键
+         */
         PeerConnection.RTCConfiguration configuration = new PeerConnection.RTCConfiguration(iceServers);
 
-        PeerConnectionObserver connectionObserver = getObserver();
-        peerConnection = peerConnectionFactory.createPeerConnection(configuration, connectionObserver);
+        PeerConnectionObserver peerConnectionObserver = getPeerConnectionObserver();
+        peerConnection = peerConnectionFactory.createPeerConnection(configuration, peerConnectionObserver);
 
         /**
          *  DataChannel.Init 可配参数说明：
@@ -275,12 +304,78 @@ public class WebRtcActivity extends AppCompatActivity implements View.OnClickLis
         if (peerConnection != null) {
             channel = peerConnection.createDataChannel(Constant.CHANNEL, init);
         }
-        DateChannelObserver channelObserver = new DateChannelObserver();
-        connectionObserver.setObserver(channelObserver);
+        DataChannelObserver dataChannelObserver = new DataChannelObserver();
+        peerConnectionObserver.setObserver(dataChannelObserver);
         initView();
         initSdpObserver();
     }
 
+    /**
+     * PeerConnectionObserver是用来监听这个连接中的事件的监听者，可以用来监听一些如数据的到达、流的增加或删除等事件
+     *
+     * @return
+     */
+    @NonNull
+    private PeerConnectionObserver getPeerConnectionObserver() {
+        return new PeerConnectionObserver() {
+            /**
+             * 当一个新的 IceCandidate 被发现时触发。
+             * @param iceCandidate
+             */
+            @Override
+            public void onIceCandidate(IceCandidate iceCandidate) {
+                super.onIceCandidate(iceCandidate);
+                sendIceCandidate(iceCandidate);
+            }
+
+            /**
+             * 当从远程的流发布时触发
+             * @param mediaStream
+             */
+            @Override
+            public void onAddStream(MediaStream mediaStream) {
+                super.onAddStream(mediaStream);
+
+                Log.d(TAG, "渲染远端画面onAddStream : " + mediaStream.toString());
+                /**
+                 * 渲染远端视频画面
+                 */
+                List<VideoTrack> videoTracks = mediaStream.videoTracks;
+                if (videoTracks != null && videoTracks.size() > 0) {
+                    VideoTrack videoTrack = videoTracks.get(0);
+                    if (videoTrack != null) {
+                        videoTrack.addSink(remoteSurfaceView);
+                    }
+                }
+                /**
+                 * 渲染远端音频画面
+                 */
+                List<AudioTrack> audioTracks = mediaStream.audioTracks;
+                if (audioTracks != null && audioTracks.size() > 0) {
+                    AudioTrack audioTrack = audioTracks.get(0);
+                    if (audioTrack != null) {
+                        audioTrack.setVolume(Constant.VOLUME);
+                    }
+                }
+            }
+        };
+    }
+
+    /**
+     * 发送Candidate到对端
+     *
+     * @param iceCandidate
+     */
+    private void sendIceCandidate(IceCandidate iceCandidate) {
+        Log.d(TAG, "onIceCandidate : " + iceCandidate.sdp);
+        Log.d(TAG, "onIceCandidate : sdpMid = " + iceCandidate.sdpMid + " sdpMLineIndex = " + iceCandidate.sdpMLineIndex);
+        Model model = new Model(getFromName(), getFrom(), getToName(), getTo());
+        model.setMessageType(Constant.CANDIDATE);
+        model.setCandidate(iceCandidate);
+        String text = new Gson().toJson(model);
+        Log.d(TAG, "setIceCandidate : " + text);
+        webSocketClient.send(text);
+    }
 
     /**
      * 初始化view
@@ -308,16 +403,22 @@ public class WebRtcActivity extends AppCompatActivity implements View.OnClickLis
 
 
     /**
-     * 创建本地视频
-     *
-     * @param localSurfaceView
+     * 创建本地视频流
      */
     private void startLocalVideoCapture(SurfaceViewRenderer localSurfaceView) {
+        /**
+         * 创建一个 VideoSource 来拿到 VideoCapturer 采集的数据:参数说明是否为屏幕录制采集
+         */
         VideoSource videoSource = peerConnectionFactory.createVideoSource(true);
         SurfaceTextureHelper surfaceTextureHelper = SurfaceTextureHelper.create(Thread.currentThread().getName(), eglBase.getEglBaseContext());
         VideoCapturer videoCapturer = createVideoCapturer();
         videoCapturer.initialize(surfaceTextureHelper, this, videoSource.getCapturerObserver());
-        videoCapturer.startCapture(Constant.VIDEO_RESOLUTION_WIDTH, Constant.VIDEO_RESOLUTION_HEIGHT, Constant.VIDEO_FPS); // width, height, frame per second
+        videoCapturer.startCapture(Constant.VIDEO_RESOLUTION_WIDTH, Constant.VIDEO_RESOLUTION_HEIGHT, Constant.VIDEO_FPS);
+        /**
+         * 创建在 WebRTC 的连接中能传输的 VideoTrack 数据
+         * 无论是本地还是远端的视频渲染，都是通过 WebRTC 提供的 SurfaceViewRenderer （继承于 SurfaceView） 进行渲染的。
+         * 视频的数据需要 VideoTrack 绑定一个 VideoSink 的实现然后将数据渲染到 SurfaceViewRenderer 中
+         */
         videoTrack = peerConnectionFactory.createVideoTrack(Constant.VIDEO_TRACK_ID, videoSource);
         videoTrack.addSink(localSurfaceView);
         MediaStream localMediaStream = peerConnectionFactory.createLocalMediaStream(Constant.LOCAL_VIDEO_STREAM);
@@ -327,19 +428,32 @@ public class WebRtcActivity extends AppCompatActivity implements View.OnClickLis
     }
 
     /**
-     * 创建本地音频
+     * 创建本地音频流
      */
     private void startLocalAudioCapture() {
-        //语音
+        /**
+         * 语音
+         */
         MediaConstraints audioConstraints = new MediaConstraints();
-        //回声消除
+        /**
+         * 回声消除
+         */
         audioConstraints.mandatory.add(new MediaConstraints.KeyValuePair("googEchoCancellation", "true"));
-        //自动增益
+        /**
+         * 自动增益
+         */
         audioConstraints.mandatory.add(new MediaConstraints.KeyValuePair("googAutoGainControl", "true"));
-        //高音过滤
+        /**
+         * 高音过滤
+         */
         audioConstraints.mandatory.add(new MediaConstraints.KeyValuePair("googHighpassFilter", "true"));
-        //噪音处理
+        /**
+         * 噪音处理
+         */
         audioConstraints.mandatory.add(new MediaConstraints.KeyValuePair("googNoiseSuppression", "true"));
+        /**
+         * AudioSource 则可直接得到音频采集数据  创建一个 AudioTrack 即可在 WebRTC 的连接中传输
+         */
         AudioSource audioSource = peerConnectionFactory.createAudioSource(audioConstraints);
         audioTrack = peerConnectionFactory.createAudioTrack(Constant.AUDIO_TRACK_ID, audioSource);
         MediaStream localMediaStream = peerConnectionFactory.createLocalMediaStream(Constant.LOCAL_AUDIO_STREAM);
@@ -350,7 +464,8 @@ public class WebRtcActivity extends AppCompatActivity implements View.OnClickLis
     }
 
     /**
-     * 准备摄像头
+     * WebRTC 视频采集需要创建一个 VideoCapturer，WebRTC 提供了 CameraEnumerator 接口，分别有 Camera1Enumerator 和 Camera2Enumerator 两个实现，
+     * 能够快速创建所需要的 VideoCapturer，通过Camera2Enumerator.isSupported 判断是否支持Camera2 来选择创建哪个 CameraEnumerator
      *
      * @return
      */
@@ -366,7 +481,7 @@ public class WebRtcActivity extends AppCompatActivity implements View.OnClickLis
         final String[] deviceNames = enumerator.getDeviceNames();
 
         /**
-         * First, try to find front facing camera
+         * 先捕获前置摄像头
          */
         Log.d(TAG, "Looking for front facing cameras.");
         for (String deviceName : deviceNames) {
@@ -380,7 +495,7 @@ public class WebRtcActivity extends AppCompatActivity implements View.OnClickLis
         }
 
         /**
-         *  Front facing camera not found, try something else
+         *  前置摄像头未找到获取后置摄像头
          */
         Log.d(TAG, "Looking for other cameras.");
         for (String deviceName : deviceNames) {
@@ -396,24 +511,24 @@ public class WebRtcActivity extends AppCompatActivity implements View.OnClickLis
     }
 
     private void initSdpObserver() {
-        observer = new MySdpObserver() {
+        observer = new RtcSdpObserver() {
             @Override
             public void onCreateSuccess(SessionDescription sessionDescription) {
                 /**
-                 * 将会话描述设置在本地
+                 *  创建 sdp 成功=============将会话描述设置在本地
                  */
                 peerConnection.setLocalDescription(this, sessionDescription);
                 SessionDescription localDescription = peerConnection.getLocalDescription();
                 SessionDescription.Type type = localDescription.type;
-                Log.e(TAG, "onCreateSuccess == " + " type == " + type);
+                Log.e(TAG, "获取SDP==========onCreateSuccess == " + " type == " + type);
                 /**
                  * 接下来使用之前的WebSocket实例将offer发送给服务器
                  */
                 if (type == SessionDescription.Type.OFFER) {
                     /**
-                     * 呼叫
+                     * 发送SDP到服务器
                      */
-                    offer(sessionDescription);
+                    sendSdpOffer(sessionDescription);
                 } else if (type == SessionDescription.Type.ANSWER) {
                     /**
                      * 应答
@@ -431,7 +546,7 @@ public class WebRtcActivity extends AppCompatActivity implements View.OnClickLis
     }
 
     /**
-     * 拨打电话
+     * 使用 MediaConstraints 来指定视频的约束条件
      */
     private void createOffer() {
         MediaConstraints mediaConstraints = new MediaConstraints();
@@ -445,53 +560,6 @@ public class WebRtcActivity extends AppCompatActivity implements View.OnClickLis
         peerConnection.createAnswer(observer, mediaConstraints);
     }
 
-    @NonNull
-    private PeerConnectionObserver getObserver() {
-        return new PeerConnectionObserver() {
-            @Override
-            public void onIceCandidate(IceCandidate iceCandidate) {
-                super.onIceCandidate(iceCandidate);
-                setIceCandidate(iceCandidate);
-            }
-
-            @Override
-            public void onAddStream(MediaStream mediaStream) {
-                super.onAddStream(mediaStream);
-                Log.d(TAG, "onAddStream : " + mediaStream.toString());
-                List<VideoTrack> videoTracks = mediaStream.videoTracks;
-                if (videoTracks != null && videoTracks.size() > 0) {
-                    VideoTrack videoTrack = videoTracks.get(0);
-                    if (videoTrack != null) {
-                        videoTrack.addSink(remoteSurfaceView);
-                    }
-                }
-                List<AudioTrack> audioTracks = mediaStream.audioTracks;
-                if (audioTracks != null && audioTracks.size() > 0) {
-                    AudioTrack audioTrack = audioTracks.get(0);
-                    if (audioTrack != null) {
-                        audioTrack.setVolume(Constant.VOLUME);
-                    }
-                }
-            }
-        };
-    }
-
-    /**
-     * 呼叫
-     *
-     * @param iceCandidate
-     */
-    private void setIceCandidate(IceCandidate iceCandidate) {
-        Log.d(TAG, "onIceCandidate : " + iceCandidate.sdp);
-        Log.d(TAG, "onIceCandidate : sdpMid = " + iceCandidate.sdpMid + " sdpMLineIndex = " + iceCandidate.sdpMLineIndex);
-        Model model = new Model(getFromName(), getFrom(), getToName(), getTo());
-        model.setId(Constant.CANDIDATE);
-        model.setCandidate(iceCandidate);
-        String text = new Gson().toJson(model);
-        Log.d(TAG, "setIceCandidate : " + text);
-        webSocketClient.send(text);
-    }
-
 
     /**
      * 应答
@@ -500,7 +568,7 @@ public class WebRtcActivity extends AppCompatActivity implements View.OnClickLis
      */
     private void answer(SessionDescription sdpDescription) {
         Model model = new Model(getFromName(), getFrom(), getToName(), getTo());
-        model.setId(Constant.OFFER);
+        model.setMessageType(Constant.OFFER);
         model.setSessionDescription(sdpDescription);
         String text = new Gson().toJson(model);
         Log.e(TAG, " answer " + text);
@@ -512,24 +580,24 @@ public class WebRtcActivity extends AppCompatActivity implements View.OnClickLis
      *
      * @param sdpDescription
      */
-    private void offer(SessionDescription sdpDescription) {
+    private void sendSdpOffer(SessionDescription sdpDescription) {
         Model model = new Model(getFromName(), getFrom(), getToName(), getTo());
-        model.setId(Constant.OFFER);
+        model.setMessageType(Constant.OFFER);
         model.setSessionDescription(sdpDescription);
         String text = new Gson().toJson(model);
-        Log.e(TAG, " offer " + text);
+        Log.e(TAG, " 发送SDP到服务器========== " + text);
         webSocketClient.send(text);
     }
 
 
     /**
-     * 呼叫
+     * 发起音视频通讯
      */
-    private void call() {
+    private void communicateRequest() {
         Model model = new Model(getFromName(), getFrom(), getToName(), getTo());
-        model.setId(Constant.CALL);
+        model.setMessageType(Constant.CALL);
         String text = new Gson().toJson(model);
-        Log.d(TAG, "call : " + text);
+        Log.d(TAG, "发起音视频通讯======webSocket消息 : " + text);
         webSocketClient.send(text);
     }
 
@@ -537,7 +605,7 @@ public class WebRtcActivity extends AppCompatActivity implements View.OnClickLis
      * 是否接听
      */
     private void isInCall() {
-        tvIsCall.setText("收到来电，是否接听");
+        tvIsCall.setText("收到音视频通话请求，是否接听?");
     }
 
     /**
@@ -545,10 +613,10 @@ public class WebRtcActivity extends AppCompatActivity implements View.OnClickLis
      */
     private void reCall() {
         Model model = new Model(getFromName(), getFrom(), getToName(), getTo());
-        model.setId(Constant.INCALL);
+        model.setMessageType(Constant.INCALL);
         model.setIsSucceed(Constant.RESPONSE_SUCCEED);
         String text = new Gson().toJson(model);
-        Log.d(TAG, "reCall : " + text);
+        Log.d(TAG, "接通通讯reCall : " + text);
         webSocketClient.send(text);
     }
 
@@ -557,7 +625,7 @@ public class WebRtcActivity extends AppCompatActivity implements View.OnClickLis
      */
     private void reFuse() {
         Model model = new Model(getFromName(), getFrom(), getToName(), getTo());
-        model.setId(Constant.INCALL);
+        model.setMessageType(Constant.INCALL);
         model.setIsSucceed(Constant.RESPONSE_FAILURE);
         String text = new Gson().toJson(model);
         Log.d(TAG, "reFuse : " + text);
@@ -624,12 +692,33 @@ public class WebRtcActivity extends AppCompatActivity implements View.OnClickLis
                     connectionWebsocket();
                     break;
                 case R.id.bt_call:
-                    call();
+                    /**
+                     * 发起音视频通讯
+                     */
+                    communicateRequest();
+                    break;
+                case R.id.bt_call_video:
+                    /**
+                     * 发起视频通讯
+                     */
+                    Toast.makeText(this, "视频", Toast.LENGTH_LONG).show();
+                    break;
+                case R.id.bt_call_audio:
+                    /**
+                     * 发起音频通讯
+                     */
+                    Toast.makeText(this, "音频", Toast.LENGTH_LONG).show();
                     break;
                 case R.id.bt_refuse:
+                    /**
+                     * 拒绝通讯
+                     */
                     reFuse();
                     break;
                 case R.id.bt_recall:
+                    /**
+                     * 接通通讯
+                     */
                     reCall();
                     break;
             }

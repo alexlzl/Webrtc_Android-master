@@ -2,20 +2,47 @@ package com.android.webrtc;
 
 
 public class Constant {
-    public static final String URL = "ws://10.1.59.115:8080/webrtc/websocket";//server服务器地址
-    public static final String STUN = "stun:stun.l.google.com:19302";//穿透服务器
+    /**
+     * server服务器地址
+     */
+    public static final String URL = "ws://10.1.59.115:8080/webrtc/websocket";
+    /**
+     * 穿透服务器
+     */
+    public static final String STUN = "stun:stun.l.google.com:19302";
     public static final String CHANNEL = "channel";
 
     public static final String OPEN = "open";
-    public static final String REGISTER = "register";//注册
-    public static final String REGISTER_RESPONSE = "register_response";//注册回复
-    public static final int RESPONSE_SUCCEED = 1;//1成功
-    public static final int RESPONSE_FAILURE = 2;//2失败
-    public static final String CALL = "call";//拨打
-    public static final String CALL_RESPONSE = "call_response";//拨打回复
+    /**
+     * 注册用户信息
+     */
+    public static final String REGISTER = "register";
+    /**
+     * 注册回复
+     */
+    public static final String REGISTER_RESPONSE = "register_response";
+    /**
+     * 1=====成功
+     */
+    public static final int RESPONSE_SUCCEED = 1;
+    /**
+     * 2============失败
+     */
+    public static final int RESPONSE_FAILURE = 2;
+    /**
+     * 发起音视频通讯
+     */
+    public static final String CALL = "call";
+    /**
+     * 发起音视频通讯回复
+     */
+    public static final String CALL_RESPONSE = "call_response";
     public static final String INCALL = "incall";//接听
     public static final String INCALL_RESPONSE = "incall_response";//接听回复
-    public static final String OFFER = "offer";//发送流
+    /**
+     * 发送或者接收SDP
+     */
+    public static final String OFFER = "offer";
     public static final String CANDIDATE = "candidate";//ice互传
     public static final int VOLUME = 10;//声音调节
 

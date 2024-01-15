@@ -6,32 +6,24 @@ import org.webrtc.SessionDescription;
 
 
 public class Model {
-
-
     /**
-     * id : register
-     * sdpOffer : v=0
-     * fromName : 11
-     * from : 1001
-     * to : 11
-     * isSucceed :1
-     * candidate : 262626
+     * 消息类型
      */
-
-    private String id;
+    private String messageType;
     private String from;
     private String fromName;
     private String to;
     private String toName;
     private SessionDescription sessionDescription;
     private IceCandidate iceCandidate;
-    private int isSucceed;//1成功 2失败
+    /**
+     * 1成功 2失败
+     */
+    private int isSucceed;
 
-    public Model() {
-    }
 
-    public Model(String id, String fromName, String from, String toName, String to) {
-        this.id = id;
+    public Model(String messageType, String fromName, String from, String toName, String to) {
+        this.messageType = messageType;
         this.fromName = fromName;
         this.from = from;
         this.toName = toName;
@@ -45,13 +37,6 @@ public class Model {
         this.to = to;
     }
 
-    public String getToName() {
-        return toName;
-    }
-
-    public void setToName(String toName) {
-        this.toName = toName;
-    }
 
     public IceCandidate getIceCandidate() {
         return iceCandidate;
@@ -69,12 +54,12 @@ public class Model {
         this.isSucceed = isSucceed;
     }
 
-    public String getId() {
-        return id;
+    public String getMessageType() {
+        return messageType;
     }
 
-    public void setId(String id) {
-        this.id = id;
+    public void setMessageType(String messageType) {
+        this.messageType = messageType;
     }
 
     public SessionDescription getSessionDescription() {
@@ -83,6 +68,14 @@ public class Model {
 
     public void setSessionDescription(SessionDescription sessionDescription) {
         this.sessionDescription = sessionDescription;
+    }
+
+    public String getToName() {
+        return toName;
+    }
+
+    public void setToName(String toName) {
+        this.toName = toName;
     }
 
     public String getFromName() {

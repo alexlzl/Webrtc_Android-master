@@ -12,7 +12,7 @@ import org.webrtc.RtpReceiver;
 public class PeerConnectionObserver implements PeerConnection.Observer {
 
     private String TAG = "PeerConnectionObserver";
-    private DateChannelObserver channelObserver;
+    private DataChannelObserver channelObserver;
 
     @Override
     public void onSignalingChange(PeerConnection.SignalingState signalingState) {
@@ -71,7 +71,7 @@ public class PeerConnectionObserver implements PeerConnection.Observer {
         Log.d(TAG, "onAddTrack : ");
     }
 
-    public void setObserver(DateChannelObserver channelObserver) {
+    public void setObserver(DataChannelObserver channelObserver) {
         this.channelObserver = channelObserver;
     }
 }

@@ -20,13 +20,6 @@ import android.text.TextPaint;
 import android.text.style.ClickableSpan;
 import android.util.Log;
 import android.view.View;
-
-//import androidx.annotation.NonNull;
-//import androidx.core.app.ActivityCompat;
-//import androidx.core.content.ContextCompat;
-
-
-
 import java.util.ArrayList;
 import java.util.List;
 

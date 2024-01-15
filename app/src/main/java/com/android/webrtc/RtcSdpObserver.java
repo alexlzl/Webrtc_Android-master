@@ -6,7 +6,7 @@ import org.webrtc.SdpObserver;
 import org.webrtc.SessionDescription;
 
 
-public class MySdpObserver implements SdpObserver {
+public class RtcSdpObserver implements SdpObserver {
 
     private String TAG = "MySdpObserver";
 

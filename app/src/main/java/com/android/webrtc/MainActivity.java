@@ -19,6 +19,8 @@ public class MainActivity extends AppCompatActivity {
         setContentView(R.layout.activity_main);
         et_address = findViewById(R.id.et_address);
         setServerUrl(Constant.URL);
+        if (checkUrl()) return;
+        setServerUrl(et_address.getText().toString().trim());
     }
 
     public void onClick(View view) {
