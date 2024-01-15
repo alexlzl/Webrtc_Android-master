@@ -54,7 +54,7 @@ public class WebRtcActivity extends AppCompatActivity implements View.OnClickLis
     private SurfaceViewRenderer localSurfaceView;
     private SurfaceViewRenderer remoteSurfaceView;
     /**
-     * 在渲染视频时，可能需要使用 EglBase 类。EglBase 提供了 OpenGL ES 上下文，用于渲染视频到 Android 视图（如 SurfaceViewRenderer 或 TextureViewRenderer）中
+     * 在渲染视频时,可能需要使用EglBase类。EglBase 提供了OpenGL ES上下文，用于渲染视频到Android视图（如SurfaceViewRenderer或TextureViewRenderer）中
      */
     private EglBase eglBase;
     private PeerConnectionFactory peerConnectionFactory;
@@ -90,7 +90,7 @@ public class WebRtcActivity extends AppCompatActivity implements View.OnClickLis
                 if (!TextUtils.isEmpty(obj)) {
                     switch (obj) {
                         case Constant.OPEN:
-                            createPeerConnection();
+                            startPeerConnection();
                             break;
                     }
                 }
@@ -179,7 +179,7 @@ public class WebRtcActivity extends AppCompatActivity implements View.OnClickLis
                                 switch (messageType) {
                                     case Constant.REGISTER_RESPONSE:
                                         /**
-                                         * 注册用户信息返回
+                                         * 注册用户信息返回=========开始初始化P2P连接流程
                                          */
                                         if (isSucceed == Constant.RESPONSE_SUCCEED) {
                                             Message msg = new Message();
@@ -262,11 +262,21 @@ public class WebRtcActivity extends AppCompatActivity implements View.OnClickLis
 
 
     /**
-     * 开始webrtc流程
+     * 开始webrtc P2P连接流程
      */
-    private void createPeerConnection() {
+    private void  startPeerConnection() {
         /**
-         * Initialising PeerConnectionFactory
+         * setFieldTrials我们可以让Android端的WebRTC启用某些试用特性
+         * WebRTC-H264Simulcast
+         * WebRTC-FlexFEC-03
+         * WebRTC-FlexFEC-03-Advertised
+         * WebRTC-IncreasedReceivebuffers
+         * WebRTC-SupportVP9SVC
+         * WebRTC-VP8-Forced-Fallback-Encoder-v2
+         * WebRTC-Video-BalancedDegradation
+         * WebRTC-SimulcastScreenshare
+         *
+         * 设置的格式一般为： 名称/Enabled(Disabled)/  。如果有设置值的，格式一般为：  名称/值/
          */
         InitializationOptions initializationOptions = InitializationOptions.builder(this).setEnableInternalTracer(true).setFieldTrials("WebRTC-H264HighProfile/Enabled/").createInitializationOptions();
         PeerConnectionFactory.initialize(initializationOptions);
